@@ -1,6 +1,7 @@
 [ha_dr_provider_sustkover]
 provider = susTkOver
-path = /usr/share/SAPHanaSR/
+path = /usr/share/SAPHanaSR-angi/
+sustkover_timeout = 30
 execution_order = 2
           
 [trace]

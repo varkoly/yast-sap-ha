@@ -340,7 +340,7 @@ module SapHA
       # Activates all necessary plugins based on role an scenario
       def adjust_global_ini(role)
         # SAPHanaSR is needed on all nodes
-        add_plugin_to_global_ini("SAPHANA_SR", @system_id)
+        add_plugin_to_global_ini("SUS_HANA_SR", @system_id)
         if @additional_instance
           # cost optimized
           add_plugin_to_global_ini("SUS_COSTOPT", @system_id) if role != :master

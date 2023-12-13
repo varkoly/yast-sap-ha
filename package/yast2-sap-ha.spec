@@ -44,7 +44,7 @@ Requires:       openssh
 Requires:       HANA-Firewall >= 2.0.3
 %endif
 Requires:       util-linux
-Requires:       SAPHanaSR
+Requires:       SAPHanaSR-angi
 Requires:       kmod
 # for pidof
 Requires:       sysvinit-tools
