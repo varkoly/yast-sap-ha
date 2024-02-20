@@ -20,27 +20,27 @@ op_defaults op-options: \
 # production HANA
 #
 
-primitive rsc_SAPHanaTopology_<%= @system_id -%>_HDB<%= @instance -%> ocf:suse:SAPHanaTopology \
-    op monitor interval="10" timeout="600" \
-    op start interval="0" timeout="600" \
-    op stop interval="0" timeout="300" \
+primitive rsc_SAPHanaTop_<%= @system_id -%>_HDB<%= @instance -%> ocf:suse:SAPHanaTopology \
+    op start interval=0 timeout=600 \
+    op stop interval=0 timeout=600 \
+    op monitor interval=50 timeout=600 \
     params SID="<%= @system_id -%>" InstanceNumber="<%= @instance -%>"
 
-clone cln_SAPHanaTopology_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHanaTopology_<%= @system_id -%>_HDB<%= @instance -%> \
+clone cln_SAPHanaTop_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHanaTop_<%= @system_id -%>_HDB<%= @instance -%> \
     meta clone-node-max="1" interleave="true"
 
-primitive rsc_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> ocf:suse:SAPHana \
-    op start interval="0" timeout="3600" \
-    op stop interval="0" timeout="3600" \
-    op promote interval="0" timeout="3600" \
-    op monitor interval="60" role="Master" timeout="700" \
-    op monitor interval="61" role="Slave" timeout="700" \
+primitive rsc_SAPHanaCon_<%= @system_id -%>_HDB<%= @instance -%> ocf:suse:SAPHanaController \
+    op start interval=0 timeout=3600 \
+    op stop interval=0 timeout=3600 \
+    op promote interval=0 timeout=3600 \
+    op monitor interval=60 role=Promoted timeout=700 \
+    op monitor interval=61 role=Unpromoted timeout=700 \
     params SID="<%= @system_id -%>" InstanceNumber="<%= @instance -%>" PREFER_SITE_TAKEOVER="<%= @prefer_takeover -%>" \
-      DUPLICATE_PRIMARY_TIMEOUT="7200" AUTOMATED_REGISTER="<%= @auto_register -%>" \
+      DUPLICATE_PRIMARY_TIMEOUT=600 AUTOMATED_REGISTER="<%= @auto_register -%>" \
     meta priority="100"
 
-ms msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> \
-    meta clone-max="2" clone-node-max="1" interleave="true" maintenance="true"
+ms msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHanaCon_<%= @system_id -%>_HDB<%= @instance -%> \
+    meta clone-max=2 clone-node-max=1 interleave=true promotable=true
 
 primitive rsc_ip_<%= @system_id -%>_HDB<%= @instance -%> ocf:heartbeat:IPaddr2 \
     op monitor interval="10" timeout="20" \
@@ -64,7 +64,7 @@ colocation col_saphana_ip_<%= @system_id -%>_HDB<%= @instance -%> <%= @additiona
 
 <% end %>
 
-order ord_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> Optional: cln_SAPHanaTopology_<%= @system_id -%>_HDB<%= @instance -%> \
+order ord_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> Optional: cln_SAPHanaTop_<%= @system_id -%>_HDB<%= @instance -%> \
     msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%>
 
 <% if @additional_instance %>
