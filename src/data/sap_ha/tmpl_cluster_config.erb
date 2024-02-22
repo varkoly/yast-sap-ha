@@ -39,7 +39,7 @@ primitive rsc_SAPHanaCon_<%= @system_id -%>_HDB<%= @instance -%> ocf:suse:SAPHan
       DUPLICATE_PRIMARY_TIMEOUT=600 AUTOMATED_REGISTER="<%= @auto_register -%>" \
     meta priority="100"
 
-ms msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHanaCon_<%= @system_id -%>_HDB<%= @instance -%> \
+clone msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%> rsc_SAPHanaCon_<%= @system_id -%>_HDB<%= @instance -%> \
     meta clone-max=2 clone-node-max=1 interleave=true promotable=true
 
 primitive rsc_ip_<%= @system_id -%>_HDB<%= @instance -%> ocf:heartbeat:IPaddr2 \
@@ -48,11 +48,19 @@ primitive rsc_ip_<%= @system_id -%>_HDB<%= @instance -%> ocf:heartbeat:IPaddr2 \
 
 <% if @global_config.platform == "azure" %>
 
+#
+# Azure only
+#
+
 primitive rsc_nc_<%= @system_id -%>_HDB<%= @instance -%> azure-lb port=625<%= @instance -%> \
   op monitor timeout=20s interval=10 \
   meta resource-stickiness=0
 
 group g_ip_<%= @system_id -%>_HDB<%= @instance -%> rsc_ip_<%= @system_id -%>_HDB<%= @instance -%> rsc_nc_<%= @system_id -%>_HDB<%= @instance -%>
+
+#
+# End azure only
+#
 
 colocation col_saphana_ip_<%= @system_id -%>_HDB<%= @instance -%> <%= @additional_instance ? "3000" : "2000" -%>: g_ip_<%= @system_id -%>_HDB<%= @instance -%>:Started \
     msl_SAPHana_<%= @system_id -%>_HDB<%= @instance -%>:Master
