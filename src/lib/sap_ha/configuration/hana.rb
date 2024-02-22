@@ -50,7 +50,7 @@ module SapHA
         :production_constraints
 
       HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
-      HANA_OPERATION_MODES = ["delta_datashipping", "logreplay"].freeze
+      HANA_OPERATION_MODES = ["logreplay", "logreplay_readaccess", "delta_datashipping"].freeze
       HANA_FW_SERVICES = [
         "hana-cockpit",
         "hana-database-client",
@@ -70,6 +70,7 @@ module SapHA
       def initialize(global_config)
         super
         log.debug "--- #{self.class}.#{__callee__} ---"
+        @manage_provider = "/usr/bin/SAPHanaSR-manageProvider"
         @screen_name = "HANA Configuration"
         @system_id = ""
         @instance = ""
@@ -90,6 +91,7 @@ module SapHA
         @np_system_id = "QAS"
         @np_instance = "10"
         @production_constraints = {}
+        @rs_version = check_rsa_version
       end
 
       def additional_instance=(value)
@@ -245,6 +247,53 @@ module SapHA
 
     private
 
+      # Checks the installed SAP HANA RA version and returns it:
+      # If no SAP HANA RA
+      # classic or angi
+      def check_rsa_version
+        return "classic" if Yast::PackageSystem.PackageInstalled("SAPHanaSR")
+        return "angi"    if Yast::PackageSystem.PackageInstalled("SAPHanaSR-angi")
+	case select_rsa_version
+	when "classic"
+	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR"],[])
+          @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
+	  return "classic"
+	when "angi"
+	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR-angi"],[])
+	  return "angi"
+	else
+          return nil
+	end
+      end
+
+      def select_rsa_version
+        content = VBox(
+                 VSpacing(1),
+                 Left(Heading(_("Select the SAP HANA Resource Agents Version to install."))),
+                 VSpacing(1),
+                 RadioButtonGroup(
+                   Id(:version),
+                   HBox(
+                    RadioButton(Id("classic"),_("Classic Version")),
+                    HSpacing(1),
+                    RadioButton(Id("angi"),_("New Version (angi)"))
+                   )
+                 ),
+                 VSpacing(1),
+                 HBox(
+                   HStretch(),
+                   PushButton(Id(:ok), _("OK")),
+                   HStretch(),
+                   PushButton(Id(:abort), _("Abort")),
+                   HStretch()
+                 )
+        )
+        UI.OpenDialog(content)
+        ui = UI.UserInput
+        return UI.QueryWidget(Id(:version), :CurrentButton) if ui == :ok
+        nil
+      end
+
       def configure_crm
         primary_host_name = @global_config.cluster.get_primary_on_primary
         secondary_host_name = @global_config.cluster.other_nodes_ext.first[:hostname]
@@ -362,7 +411,7 @@ module SapHA
         if File.exist?("#{sr_path}.erb")
           sr_path = Helpers.write_var_file(plugin, Helpers.render_template("GLOBAL_INI_#{plugin}.erb", binding))
         end
-        command = ["/usr/sbin/SAPHanaSR-manageProvider", "--add", "--reconfigure", "--sid", sid, sr_path]
+        command = [@manage_provider, "--add", "--reconfigure", "--sid", sid, sr_path]
         _out, _status = su_exec_outerr_status("#{sid.downcase}adm", *command)
       end
     end
