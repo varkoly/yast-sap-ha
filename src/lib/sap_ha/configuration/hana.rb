@@ -91,7 +91,7 @@ module SapHA
         @np_system_id = "QAS"
         @np_instance = "10"
         @production_constraints = {}
-        @rs_version = check_rsa_version
+        @rsa_version = check_rsa_version
       end
 
       def additional_instance=(value)
@@ -297,7 +297,7 @@ module SapHA
       def configure_crm
         primary_host_name = @global_config.cluster.get_primary_on_primary
         secondary_host_name = @global_config.cluster.other_nodes_ext.first[:hostname]
-        crm_conf = Helpers.render_template("tmpl_cluster_config.erb", binding)
+        crm_conf = Helpers.render_template("tmpl_cluster_config.#{@rsa_version}.erb", binding)
         file_path = Helpers.write_var_file("cluster.config", crm_conf)
         out, status = exec_outerr_status("crm", "configure", "load", "update", file_path)
         @nlog.log_status(status.exitstatus == 0,
@@ -389,7 +389,7 @@ module SapHA
       # Activates all necessary plugins based on role an scenario
       def adjust_global_ini(role)
         # SAPHanaSR is needed on all nodes
-        add_plugin_to_global_ini("SUS_HANA_SR", @system_id)
+        add_plugin_to_global_ini("SAPHANA_SR", @system_id)
         if @additional_instance
           # cost optimized
           add_plugin_to_global_ini("SUS_COSTOPT", @system_id) if role != :master
@@ -407,9 +407,9 @@ module SapHA
 
       # Activates the plugin in global ini
       def add_plugin_to_global_ini(plugin, sid)
-        sr_path = Helpers.data_file_path("GLOBAL_INI_#{plugin}")
+        sr_path = Helpers.data_file_path("GLOBAL_INI_#{plugin}.#{@rsa_version}")
         if File.exist?("#{sr_path}.erb")
-          sr_path = Helpers.write_var_file(plugin, Helpers.render_template("GLOBAL_INI_#{plugin}.erb", binding))
+          sr_path = Helpers.write_var_file(plugin, Helpers.render_template("GLOBAL_INI_#{plugin}.#{@rsa_version}.erb", binding))
         end
         command = [@manage_provider, "--add", "--reconfigure", "--sid", sid, sr_path]
         _out, _status = su_exec_outerr_status("#{sid.downcase}adm", *command)
