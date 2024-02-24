@@ -63,12 +63,15 @@ module SapHA
         "sap-special-support"
       ].freeze
 
+      Yast.import "UI"
+      include Yast::I18n
       include Yast::UIShortcuts
       include SapHA::System::ShellCommands
       include Yast::Logger
 
       def initialize(global_config)
         super
+        textdomain "hana-ha"
         log.debug "--- #{self.class}.#{__callee__} ---"
         @manage_provider = "/usr/bin/SAPHanaSR-manageProvider"
         @screen_name = "HANA Configuration"
@@ -288,9 +291,9 @@ module SapHA
                    HStretch()
                  )
         )
-        UI.OpenDialog(content)
-        ui = UI.UserInput
-        return UI.QueryWidget(Id(:version), :CurrentButton) if ui == :ok
+        Yast::UI.OpenDialog(content)
+        ui = Yast::UI.UserInput
+        return Yast::UI.QueryWidget(Id(:version), :CurrentButton) if ui == :ok
         nil
       end
 
