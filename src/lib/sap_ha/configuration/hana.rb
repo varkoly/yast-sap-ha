@@ -31,23 +31,25 @@ module SapHA
   module Configuration
     # HANA configuration
     class HANA < BaseConfig
-      attr_accessor :system_id,
+      attr_accessor
+        :additional_instance,
+        :auto_register,
+        :backup_file,
+        :backup_user,
         :instance,
         :np_system_id,
         :np_instance,
-        :virtual_ip,
-        :virtual_ip_mask,
+        :operation_mode,
+        :perform_backup,
         :prefer_takeover,
-        :auto_register,
+        :production_constraints
+        :replication_mode,
+        :rsa_version,
         :site_name_1,
         :site_name_2,
-        :backup_file,
-        :backup_user,
-        :perform_backup,
-        :replication_mode,
-        :operation_mode,
-        :additional_instance,
-        :production_constraints
+	:system_id,
+        :virtual_ip,
+        :virtual_ip_mask,
 
       HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
       HANA_OPERATION_MODES = ["logreplay", "logreplay_readaccess", "delta_datashipping"].freeze
@@ -94,7 +96,7 @@ module SapHA
         @np_system_id = "QAS"
         @np_instance = "10"
         @production_constraints = {}
-        @rsa_version = check_rsa_version
+        @rsa_version = ""
       end
 
       def additional_instance=(value)
@@ -155,6 +157,35 @@ module SapHA
             production_constraints_validation(check, @production_constraints)
           end
         end
+      end
+
+      # Checks the installed SAP HANA RSA version and sets the variables.
+      # If no SAP HANA RSA is installed but @rsa_version ist set install it.
+      # If no SAP HANA RSA is installed and @rsa_version is not set ask and install it.
+      # Return false if as result no SAP HANA RSA could be installed.
+      def check_rsa_version
+        if Yast::PackageSystem.PackageInstalled("SAPHanaSR")
+          @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
+	  @rsa_version = "classic"
+	  return true
+	end
+        if Yast::PackageSystem.PackageInstalled("SAPHanaSR-angi")
+	  @rsa_version = "angi"
+	  return true
+	end
+	@rsa_version = select_rsa_version if @rsa_version.nil? or @rsa_version == ""
+	case @rsa_version
+	when "classic"
+	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR"],[])
+          @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
+	  @rsa_version = "classic"
+	when "angi"
+	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR-angi"],[])
+	  @rsa_version = "angi"
+	else
+          return false
+	end
+        return true
       end
 
       def description
@@ -249,25 +280,6 @@ module SapHA
       end
 
     private
-
-      # Checks the installed SAP HANA RA version and returns it:
-      # If no SAP HANA RA
-      # classic or angi
-      def check_rsa_version
-        return "classic" if Yast::PackageSystem.PackageInstalled("SAPHanaSR")
-        return "angi"    if Yast::PackageSystem.PackageInstalled("SAPHanaSR-angi")
-	case select_rsa_version
-	when "classic"
-	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR"],[])
-          @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
-	  return "classic"
-	when "angi"
-	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR-angi"],[])
-	  return "angi"
-	else
-          return nil
-	end
-      end
 
       def select_rsa_version
         content = VBox(
