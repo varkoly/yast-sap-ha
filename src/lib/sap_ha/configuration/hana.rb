@@ -31,8 +31,7 @@ module SapHA
   module Configuration
     # HANA configuration
     class HANA < BaseConfig
-      attr_accessor
-        :additional_instance,
+      attr_accessor :additional_instance,
         :auto_register,
         :backup_file,
         :backup_user,
@@ -42,7 +41,7 @@ module SapHA
         :operation_mode,
         :perform_backup,
         :prefer_takeover,
-        :production_constraints
+        :production_constraints,
         :replication_mode,
         :rsa_version,
         :site_name_1,
