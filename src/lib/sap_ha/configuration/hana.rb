@@ -48,9 +48,9 @@ module SapHA
         :site_name_2,
         :system_id,
         :virtual_ip,
-        :virtual_ip_mask,
+        :virtual_ip_mask
 
-        HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
+      HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
       HANA_OPERATION_MODES = ["logreplay", "logreplay_readaccess", "delta_datashipping"].freeze
       HANA_FW_SERVICES = [
         "hana-cockpit",
