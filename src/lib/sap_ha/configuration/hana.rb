@@ -46,11 +46,11 @@ module SapHA
         :rsa_version,
         :site_name_1,
         :site_name_2,
-	:system_id,
+        :system_id,
         :virtual_ip,
         :virtual_ip_mask,
 
-      HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
+        HANA_REPLICATION_MODES = ["sync", "syncmem", "async"].freeze
       HANA_OPERATION_MODES = ["logreplay", "logreplay_readaccess", "delta_datashipping"].freeze
       HANA_FW_SERVICES = [
         "hana-cockpit",
@@ -103,15 +103,13 @@ module SapHA
         return unless value
         @prefer_takeover = false
         @production_constraints = {
-          global_alloc_limit_prod:  "0",
-          global_alloc_limit_non:   "0",
-          preload_column_tables: "false"
+          global_alloc_limit_prod: "0",
+          global_alloc_limit_non:  "0",
+          preload_column_tables:   "false"
         }
       end
 
-      def np_instance=(value)
-        @np_instance = value
-      end
+      attr_writer :np_instance
 
       def configured?
         validate(:silent)
@@ -146,7 +144,7 @@ module SapHA
               "There is no such HANA user store key detected.", "Secure store key")
           end
           if @additional_instance
-            check.hana_is_installed(@np_system_id,@global_config.cluster.other_nodes)
+            check.hana_is_installed(@np_system_id, @global_config.cluster.other_nodes)
             check.sap_instance_number(@np_instance, nil, "Non-Production Instance Number")
             check.sap_sid(@np_system_id, nil, "Non-Production System ID")
             check.not_equal(@instance, @np_instance, "SAP HANA instance numbers should not collide",
@@ -163,28 +161,37 @@ module SapHA
       # If no SAP HANA RSA is installed and @rsa_version is not set ask and install it.
       # Return false if as result no SAP HANA RSA could be installed.
       def check_rsa_version
+        package_to_remove = []
         if Yast::PackageSystem.PackageInstalled("SAPHanaSR")
-          @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
-	  @rsa_version = "classic"
-	  return true
-	end
+          if @rsa_version == "angi"
+            package_to_remove << "SAPHanaSR"
+          else
+            @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
+            @rsa_version = "classic"
+            return true
+          end
+        end
         if Yast::PackageSystem.PackageInstalled("SAPHanaSR-angi")
-	  @rsa_version = "angi"
-	  return true
-	end
-	@rsa_version = select_rsa_version if @rsa_version.nil? or @rsa_version == ""
-	case @rsa_version
-	when "classic"
-	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR"],[])
+          if @rsa_version == "classic"
+            package_to_remove << "SAPHanaSR-angi"
+          else
+            @rsa_version = "angi"
+            return true
+          end
+        end
+        @rsa_version = select_rsa_version if @rsa_version.nil? || @rsa_version == ""
+        case @rsa_version
+        when "classic"
+          Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR"], package_to_remove)
           @manage_provider = "/usr/sbin/SAPHanaSR-manageProvider"
-	  @rsa_version = "classic"
-	when "angi"
-	  Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR-angi"],[])
-	  @rsa_version = "angi"
-	else
+          @rsa_version = "classic"
+        when "angi"
+          Yast::PackageSystem.DoInstallAndRemove(["SAPHanaSR-angi"], package_to_remove)
+          @rsa_version = "angi"
+        else
           return false
-	end
-        return true
+        end
+        true
       end
 
       def description
@@ -260,6 +267,7 @@ module SapHA
           SapHA::System::Hana.copy_ssfs_keys(@system_id, secondary_host_name, secondary_password)
           SapHA::System::Hana.enable_primary(@system_id, @site_name_1)
         else # secondary node
+          check_rsa_version
           SapHA::System::Hana.hdb_stop(@system_id)
           primary_host_name = @global_config.cluster.other_nodes_ext.first[:hostname]
           SapHA::System::Hana.enable_secondary(@system_id, @site_name_2,
@@ -278,29 +286,29 @@ module SapHA
         activating_msr
       end
 
-    private
+      private
 
       def select_rsa_version
         content = VBox(
-                 VSpacing(1),
-                 Left(Heading(_("Select the SAP HANA Resource Agents Version to install."))),
-                 VSpacing(1),
-                 RadioButtonGroup(
-                   Id(:version),
-                   HBox(
-                    RadioButton(Id("classic"),_("Classic Version")),
-                    HSpacing(1),
-                    RadioButton(Id("angi"),_("New Version (angi)"))
-                   )
-                 ),
-                 VSpacing(1),
-                 HBox(
-                   HStretch(),
-                   PushButton(Id(:ok), _("OK")),
-                   HStretch(),
-                   PushButton(Id(:abort), _("Abort")),
-                   HStretch()
-                 )
+          VSpacing(1),
+          Left(Heading(_("Select the SAP HANA Resource Agents Version to install."))),
+          VSpacing(1),
+          RadioButtonGroup(
+            Id(:version),
+            HBox(
+              RadioButton(Id("classic"), _("Classic Version")),
+              HSpacing(1),
+              RadioButton(Id("angi"), _("New Version (angi)"))
+            )
+          ),
+          VSpacing(1),
+          HBox(
+            HStretch(),
+            PushButton(Id(:ok), _("OK")),
+            HStretch(),
+            PushButton(Id(:abort), _("Abort")),
+            HStretch()
+          )
         )
         Yast::UI.OpenDialog(content)
         ui = Yast::UI.UserInput
@@ -322,12 +330,12 @@ module SapHA
       # Wait until the node is in state S_IDLE but maximal 60 seconds
       def wait_idle(node)
         counter = 0
-        while true
-          out, status = exec_outerr_status("crmadmin","--quiet","--status",node)
+        loop do
+          out, status = exec_outerr_status("crmadmin", "--quiet", "--status", node)
           break if out == "S_IDLE"
           log.info("wait_idle status of #{node} is #{out}")
-	  counter += 1
-	  break if counter > 10
+          counter += 1
+          break if counter > 10
           sleep 6
         end
       end
@@ -366,7 +374,7 @@ module SapHA
         when "done"
           @nlog.info("Firewall is already configured")
           if role != :master
-             _s = exec_status("/usr/bin/firewall-cmd", "--add-port", "8080/tcp")
+            _s = exec_status("/usr/bin/firewall-cmd", "--add-port", "8080/tcp")
           end
         when "off"
           @nlog.info("Firewall will be turned off")
@@ -380,7 +388,7 @@ module SapHA
           _s = exec_status("/usr/sbin/hana-firewall", "generate-firewalld-services")
           _s = exec_status("/usr/bin/firewall-cmd", "--reload")
           if role != :master
-             _s = exec_status("/usr/bin/firewall-cmd", "--add-port", "8080/tcp")
+            _s = exec_status("/usr/bin/firewall-cmd", "--add-port", "8080/tcp")
           end
           _s = exec_status("/usr/bin/firewall-cmd", "--add-service", "cluster")
           _s = exec_status("/usr/bin/firewall-cmd", "--permanent", "--add-service", "cluster")
@@ -389,14 +397,14 @@ module SapHA
             _s = exec_status("/usr/bin/firewall-cmd", "--permanent", "--add-service", service)
           end
         else
-           @nlog.info("Invalide firewall configuration status")
+          @nlog.info("Invalide firewall configuration status")
         end
       end
 
       # Creates the sudoers file
       def adapt_sudoers
         if File.exist?(SapHA::Helpers.data_file_path("SUDOERS_HANASR.erb"))
-          Helpers.write_file("/etc/sudoers.d/saphanasr.conf",Helpers.render_template("SUDOERS_HANASR.erb", binding))
+          Helpers.write_file("/etc/sudoers.d/saphanasr.conf", Helpers.render_template("SUDOERS_HANASR.erb", binding))
         end
       end
 
